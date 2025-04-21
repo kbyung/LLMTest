@@ -12,14 +12,21 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.kbyung2.LLMTest",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone for speech recognition",
+        "NSSpeechRecognitionUsageDescription": "This app needs speech recognition to convert your voice to text"
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.kbyung2.LLMTest"
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +44,32 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-asset"
+      [
+        "expo-asset",
+        {
+          "assets": [
+            "./assets/gemma-3-4b-it-Q2_K_L.gguf"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ],
+      [
+        "@react-native-voice/voice"
+      ], 
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "SpeechRecognition",
+            "Microphone"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -49,6 +81,7 @@
       "eas": {
         "projectId": "59d97fe0-18de-408f-9a58-82f28d06d6fc"
       }
-    }
+    },
+    "owner": "kbyung2"
   }
 }

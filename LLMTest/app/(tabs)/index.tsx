@@ -10,17 +10,122 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useState } from 'react';
-import { downloadModel } from '../api/model';
+import { useState, useEffect } from 'react';
+import downloadModel from '../api/model';
 import ProgressBar from '../components/ProgressBar';
 import { initLlama, releaseAllLlama, loadLlamaModelInfo } from 'llama.rn';
 import RNFS from 'react-native-fs';
+import * as Speech from 'expo-speech';
+import Voice, {
+  SpeechErrorEvent,
+  SpeechResultsEvent
+} from '@react-native-voice/voice';
+import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 export default function HomeScreen() {
+
+  const [results, setResults] = useState<string[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    // Set up voice event handlers
+    Voice.onSpeechResults = onSpeechResults;
+    Voice.onSpeechError = onSpeechError;
+
+    // Clean up on unmount
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
+
+  const onSpeechResults = (e: SpeechResultsEvent) => {
+    console.log('Speech results:', e);
+    if (e.value) {
+      const transcript = e.value.join(' ');
+      setResults(e.value);
+      setUserInput(transcript); 
+    }
+  };
+
+  const onSpeechError = (e: SpeechErrorEvent) => {
+    console.log('Speech error:', e);
+    setError(JSON.stringify(e.error));
+    setIsListening(false);
+  };
+
+  const startListening = async () => {
+    try {
+      setError('');
+      setResults([]);
+      
+      // Request permissions
+      if (Platform.OS === 'ios') {
+        console.log('Requesting iOS permissions...');
+        const micPermission = await request(PERMISSIONS.IOS.MICROPHONE);
+        const speechPermission = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
+        
+        console.log('Permission results:', { mic: micPermission, speech: speechPermission });
+        
+        if (micPermission !== RESULTS.GRANTED || speechPermission !== RESULTS.GRANTED) {
+          setError('Permissions not granted');
+          return;
+        }
+      }
+      
+      console.log('Starting Voice.start()...');
+      await Voice.start('en-US');
+      console.log('Voice.start() successful');
+      setIsListening(true);
+    } catch (e) {
+      console.error('Error starting voice recognition:', e);
+      setError(`Start error: ${e instanceof Error ? e.message : JSON.stringify(e)}`);
+    }
+  };
+
+  const stopListening = async () => {
+    try {
+      await Voice.stop();
+      setIsListening(false);
+      
+    } catch (e) {
+      console.error('Error stopping voice recognition:', e);
+    }
+  };
+
+  const speak = (text: string) => {
+    if (!text || text.trim() === '') return;
+  
+   // Remove emojis and <end_of_turn>-like tags
+   let cleanedText = text.replace(/<[^>]*>/g, '');
+
+  // Remove emojis using a basic range-based approach (works for most emojis)
+  cleanedText = cleanedText.replace(
+    /([\u231A-\uD83E\uDDFF]|\uD83C[\uDDE6-\uDDFF])+/g,
+    ''
+  );
+
+  
+
+console.log('Speaking:', cleanedText);
+Speech.speak(cleanedText, {
+  language: 'en',
+  rate: 0.9,
+  onDone: () => console.log('Speech done'),
+  onError: (e) => console.error('Speech error', e),
+});
+  };
   type Message = {
     role: 'system' | 'user' | 'assistant';
-    content: string;
+    content:
+      | string
+      | Array<
+          | { type: 'text'; text: string }
+          | { type: 'image'; url: string }
+          | { type: 'image'; image_tokens: number[] }
+        >;
   };
+  
 
   const INITIAL_CONVERSATION: Message[] = [
     {
@@ -37,7 +142,7 @@ export default function HomeScreen() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   const handleDownloadModel = async (file: string) => {
-    const downloadUrl = `https://huggingface.co/unsloth/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q2_K.gguf?download=true`;
+    const downloadUrl = `https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q3_K_M.gguf`;
     setIsDownloading(true);
     setProgress(0);
 
@@ -59,8 +164,11 @@ export default function HomeScreen() {
       const destPath = `${RNFS.DocumentDirectoryPath}/${modelName}`;
       const fileExists = await RNFS.exists(destPath);
       if (!fileExists) {
-        Alert.alert('Error Loading Model', 'The model file does not exist.');
+        Alert.alert('Missing File', `Model file "${modelName}" not found in local storage.`);
+        console.log('File does not exist!');
+
         return false;
+      
       }
 
       if (context) {
@@ -75,10 +183,11 @@ export default function HomeScreen() {
         model: destPath,
         use_mlock: true,
         n_ctx: 2048,
-        n_gpu_layers:20 ,
+        n_gpu_layers:5 ,
       });
 
       setContext(llamaContext);
+      
       return true;
     } catch (error) {
       Alert.alert(
@@ -100,10 +209,20 @@ export default function HomeScreen() {
       return;
     }
 
+    
+
+    // const newConversation: Message[] = [
+    //   ...conversation,
+    //   { role: 'user', content: userInput },
+     
+    // ];
     const newConversation: Message[] = [
       ...conversation,
-      { role: 'user', content: userInput },
-    ];
+      {
+          role: "user",
+          content: userInput
+      },
+  ];
     setIsGenerating(true);
     setConversation(newConversation);
     setUserInput('');
@@ -131,6 +250,7 @@ export default function HomeScreen() {
           ...prev,
           { role: 'assistant', content: result.text.trim() },
         ]);
+        Speech.speak(result.text);
       } else {
         throw new Error('No response from the model.');
       }
@@ -151,10 +271,17 @@ export default function HomeScreen() {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-        <Text style={styles.title}>LLM Chatbot</Text>
   
-        <TouchableOpacity onPress={() => handleDownloadModel('Llama-3.2-1B-Instruct-Q5_K_L.gguf')}>
+        <TouchableOpacity onPress={() => handleDownloadModel('gemma-3-1b-it-Q2_K_L.gguf')}>
           <Text style={styles.button}>Download Model</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => loadModel('gemma-3-1b-it-Q2_K_L.gguf')}>
+          <Text style={styles.button}>Load Model</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => speak("Hi Harvey Mudd!")}>
+          <Text style={styles.button}>Speak</Text>
         </TouchableOpacity>
   
         {isDownloading && <ProgressBar progress={progress} />}
@@ -166,12 +293,53 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
           >
             {conversation.map((msg, index) => (
-              <Text key={index} style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
-                {msg.role}: {msg.content}
-              </Text>
-            ))}
+  <View key={index} style={{ marginBottom: 10 }}>
+    <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
+      {msg.role}:
+    </Text>
+    {typeof msg.content === 'string' ? (
+      <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
+        {msg.content}
+      </Text>
+    ) : (
+      msg.content.map((item, subIndex) => {
+        if (item.type === 'text') {
+          return (
+            <Text
+              key={subIndex}
+              style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}
+            >
+              {item.text}
+            </Text>
+          );
+        } else if ('url' in item) {
+          return (
+            <Text key={subIndex} style={{ fontStyle: 'italic', color: '#888' }}>
+              [Image: {item.url}]
+            </Text>
+          );
+        }
+        return null;
+      })
+    )}
+  </View>
+))}
+
           </ScrollView>
         </View>
+
+        <TouchableOpacity
+  onPress={isListening ? stopListening : startListening}
+  style={[
+    styles.micButton,
+    isListening ? styles.micActive : null
+  ]}
+  accessibilityLabel={isListening ? "Stop Recording" : "Start Recording"}
+>
+  <Text style={styles.micText}>
+    {isListening ? '🛑 Stop Talking' : '🎙️ Talk to Chatbot'}
+  </Text>
+</TouchableOpacity>
   
         <View style={styles.inputContainer}>
           <TextInput
@@ -252,6 +420,22 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     marginBottom: 10,
     color: '#007aff',
+  },
+  micButton: {
+    backgroundColor: '#007aff',
+    padding: 20,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  micActive: {
+    backgroundColor: '#ff3b30',
+  },
+  micText: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   
 });

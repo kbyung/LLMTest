@@ -1,109 +1,123 @@
-import { StyleSheet, Image, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Button, StyleSheet, Platform } from 'react-native';
+import Voice, {
+  SpeechErrorEvent,
+  SpeechResultsEvent
+} from '@react-native-voice/voice';
+import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+export default function SimpleVoiceTest() {
+  const [results, setResults] = useState<string[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState<string>('');
 
-export default function TabTwoScreen() {
+  useEffect(() => {
+    // Set up voice event handlers
+    Voice.onSpeechResults = onSpeechResults;
+    Voice.onSpeechError = onSpeechError;
+
+    // Clean up on unmount
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
+
+  const onSpeechResults = (e: SpeechResultsEvent) => {
+    console.log('Speech results:', e);
+    if (e.value) {
+      setResults(e.value);
+    }
+  };
+
+  const onSpeechError = (e: SpeechErrorEvent) => {
+    console.log('Speech error:', e);
+    setError(JSON.stringify(e.error));
+    setIsListening(false);
+  };
+
+  const startListening = async () => {
+    try {
+      setError('');
+      setResults([]);
+      
+      // Request permissions
+      if (Platform.OS === 'ios') {
+        console.log('Requesting iOS permissions...');
+        const micPermission = await request(PERMISSIONS.IOS.MICROPHONE);
+        const speechPermission = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
+        
+        console.log('Permission results:', { mic: micPermission, speech: speechPermission });
+        
+        if (micPermission !== RESULTS.GRANTED || speechPermission !== RESULTS.GRANTED) {
+          setError('Permissions not granted');
+          return;
+        }
+      }
+      
+      console.log('Starting Voice.start()...');
+      await Voice.start('en-US');
+      console.log('Voice.start() successful');
+      setIsListening(true);
+    } catch (e) {
+      console.error('Error starting voice recognition:', e);
+      setError(`Start error: ${e instanceof Error ? e.message : JSON.stringify(e)}`);
+    }
+  };
+
+  const stopListening = async () => {
+    try {
+      await Voice.stop();
+      setIsListening(false);
+    } catch (e) {
+      console.error('Error stopping voice recognition:', e);
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user's current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <Text style={styles.title}>Simple Voice Test</Text>
+      
+      <Button 
+        title={isListening ? "Stop Listening" : "Start Listening"} 
+        onPress={isListening ? stopListening : startListening} 
+      />
+      
+      {error ? (
+        <Text style={styles.errorText}>Error: {error}</Text>
+      ) : null}
+      
+      <Text style={styles.resultsTitle}>Results:</Text>
+      {results.map((result, index) => (
+        <Text key={index} style={styles.resultText}>{result}</Text>
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 30,
+  },
+  resultsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  resultText: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  errorText: {
+    color: 'red',
+    marginTop: 10,
   },
 });
