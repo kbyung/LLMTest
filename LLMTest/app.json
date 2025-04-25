@@ -48,7 +48,7 @@
         "expo-asset",
         {
           "assets": [
-            "./assets/gemma-3-4b-it-Q2_K_L.gguf"
+            "./assets/images/test_image.webp"
           ]
         }
       ],

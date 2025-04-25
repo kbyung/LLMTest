@@ -44,7 +44,7 @@ export default function HomeScreen() {
     if (e.value) {
       const transcript = e.value.join(' ');
       setResults(e.value);
-      setUserInput(transcript); 
+      setUserInput(transcript);
     }
   };
 
@@ -58,21 +58,21 @@ export default function HomeScreen() {
     try {
       setError('');
       setResults([]);
-      
+
       // Request permissions
       if (Platform.OS === 'ios') {
         console.log('Requesting iOS permissions...');
         const micPermission = await request(PERMISSIONS.IOS.MICROPHONE);
         const speechPermission = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
-        
+
         console.log('Permission results:', { mic: micPermission, speech: speechPermission });
-        
+
         if (micPermission !== RESULTS.GRANTED || speechPermission !== RESULTS.GRANTED) {
           setError('Permissions not granted');
           return;
         }
       }
-      
+
       console.log('Starting Voice.start()...');
       await Voice.start('en-US');
       console.log('Voice.start() successful');
@@ -87,7 +87,7 @@ export default function HomeScreen() {
     try {
       await Voice.stop();
       setIsListening(false);
-      
+
     } catch (e) {
       console.error('Error stopping voice recognition:', e);
     }
@@ -95,37 +95,37 @@ export default function HomeScreen() {
 
   const speak = (text: string) => {
     if (!text || text.trim() === '') return;
-  
-   // Remove emojis and <end_of_turn>-like tags
-   let cleanedText = text.replace(/<[^>]*>/g, '');
 
-  // Remove emojis using a basic range-based approach (works for most emojis)
-  cleanedText = cleanedText.replace(
-    /([\u231A-\uD83E\uDDFF]|\uD83C[\uDDE6-\uDDFF])+/g,
-    ''
-  );
+    // Remove emojis and <end_of_turn>-like tags
+    let cleanedText = text.replace(/<[^>]*>/g, '');
 
-  
+    // Remove emojis using a basic range-based approach (works for most emojis)
+    cleanedText = cleanedText.replace(
+      /([\u231A-\uD83E\uDDFF]|\uD83C[\uDDE6-\uDDFF])+/g,
+      ''
+    );
 
-console.log('Speaking:', cleanedText);
-Speech.speak(cleanedText, {
-  language: 'en',
-  rate: 0.9,
-  onDone: () => console.log('Speech done'),
-  onError: (e) => console.error('Speech error', e),
-});
+
+
+    console.log('Speaking:', cleanedText);
+    Speech.speak(cleanedText, {
+      language: 'en',
+      rate: 0.9,
+      onDone: () => console.log('Speech done'),
+      onError: (e) => console.error('Speech error', e),
+    });
   };
   type Message = {
     role: 'system' | 'user' | 'assistant';
     content:
-      | string
-      | Array<
-          | { type: 'text'; text: string }
-          | { type: 'image'; url: string }
-          | { type: 'image'; image_tokens: number[] }
-        >;
+    | string
+    | Array<
+      | { type: 'text'; text: string }
+      | { type: 'image'; url: string }
+      | { type: 'image'; image_tokens: number[] }
+    >;
   };
-  
+
 
   const INITIAL_CONVERSATION: Message[] = [
     {
@@ -168,7 +168,7 @@ Speech.speak(cleanedText, {
         console.log('File does not exist!');
 
         return false;
-      
+
       }
 
       if (context) {
@@ -183,11 +183,11 @@ Speech.speak(cleanedText, {
         model: destPath,
         use_mlock: true,
         n_ctx: 2048,
-        n_gpu_layers:5 ,
+        n_gpu_layers: 5,
       });
 
       setContext(llamaContext);
-      
+
       return true;
     } catch (error) {
       Alert.alert(
@@ -209,20 +209,20 @@ Speech.speak(cleanedText, {
       return;
     }
 
-    
+
 
     // const newConversation: Message[] = [
     //   ...conversation,
     //   { role: 'user', content: userInput },
-     
+
     // ];
     const newConversation: Message[] = [
       ...conversation,
       {
-          role: "user",
-          content: userInput
+        role: "user",
+        content: userInput
       },
-  ];
+    ];
     setIsGenerating(true);
     setConversation(newConversation);
     setUserInput('');
@@ -271,7 +271,7 @@ Speech.speak(cleanedText, {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-  
+
         <TouchableOpacity onPress={() => handleDownloadModel('gemma-3-1b-it-Q2_K_L.gguf')}>
           <Text style={styles.button}>Download Model</Text>
         </TouchableOpacity>
@@ -281,11 +281,11 @@ Speech.speak(cleanedText, {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => speak("Hi Harvey Mudd!")}>
-          <Text style={styles.button}>Speak</Text>
+          <Text style={styles.button}>Analyze Image</Text>
         </TouchableOpacity>
-  
+
         {isDownloading && <ProgressBar progress={progress} />}
-  
+
         <View style={styles.chatWrapper}>
           <ScrollView
             style={styles.chatBox}
@@ -293,54 +293,54 @@ Speech.speak(cleanedText, {
             showsVerticalScrollIndicator={false}
           >
             {conversation.map((msg, index) => (
-  <View key={index} style={{ marginBottom: 10 }}>
-    <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
-      {msg.role}:
-    </Text>
-    {typeof msg.content === 'string' ? (
-      <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
-        {msg.content}
-      </Text>
-    ) : (
-      msg.content.map((item, subIndex) => {
-        if (item.type === 'text') {
-          return (
-            <Text
-              key={subIndex}
-              style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}
-            >
-              {item.text}
-            </Text>
-          );
-        } else if ('url' in item) {
-          return (
-            <Text key={subIndex} style={{ fontStyle: 'italic', color: '#888' }}>
-              [Image: {item.url}]
-            </Text>
-          );
-        }
-        return null;
-      })
-    )}
-  </View>
-))}
+              <View key={index} style={{ marginBottom: 10 }}>
+                <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
+                  {msg.role}:
+                </Text>
+                {typeof msg.content === 'string' ? (
+                  <Text style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}>
+                    {msg.content}
+                  </Text>
+                ) : (
+                  msg.content.map((item, subIndex) => {
+                    if (item.type === 'text') {
+                      return (
+                        <Text
+                          key={subIndex}
+                          style={msg.role === 'user' ? styles.userMsg : styles.assistantMsg}
+                        >
+                          {item.text}
+                        </Text>
+                      );
+                    } else if ('url' in item) {
+                      return (
+                        <Text key={subIndex} style={{ fontStyle: 'italic', color: '#888' }}>
+                          [Image: {item.url}]
+                        </Text>
+                      );
+                    }
+                    return null;
+                  })
+                )}
+              </View>
+            ))}
 
           </ScrollView>
         </View>
 
         <TouchableOpacity
-  onPress={isListening ? stopListening : startListening}
-  style={[
-    styles.micButton,
-    isListening ? styles.micActive : null
-  ]}
-  accessibilityLabel={isListening ? "Stop Recording" : "Start Recording"}
->
-  <Text style={styles.micText}>
-    {isListening ? '🛑 Stop Talking' : '🎙️ Talk to Chatbot'}
-  </Text>
-</TouchableOpacity>
-  
+          onPress={isListening ? stopListening : startListening}
+          style={[
+            styles.micButton,
+            isListening ? styles.micActive : null
+          ]}
+          accessibilityLabel={isListening ? "Stop Recording" : "Start Recording"}
+        >
+          <Text style={styles.micText}>
+            {isListening ? '🛑 Stop Talking' : '🎙️ Talk to Chatbot'}
+          </Text>
+        </TouchableOpacity>
+
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -356,12 +356,12 @@ Speech.speak(cleanedText, {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-  
-  
+
+
 }
 
 const styles = StyleSheet.create({
-  
+
   safeArea: {
     flex: 1,
     backgroundColor: '#fff',
@@ -437,5 +437,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  
+
 });
